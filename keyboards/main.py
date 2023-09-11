@@ -1,7 +1,7 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from message_parts.main import get_message
 from bot_utils import get_language_in_db
-from CBDate import callbackdata_order_miner, callbackdata_settings, callbackdata_calculate_miner
+from CBDate import callbackdata_order_miner, callbackdata_settings, callbackdata_calculate_miner, callbackdata_calculate_miner_result
 class keyboard_start():
     ru = KeyboardButton('🇷🇺')
     us = KeyboardButton('🇺🇸')
@@ -48,7 +48,7 @@ class calatol_miner():
         else:
             language = param
         catalog = InlineKeyboardButton(f'{get_message(language, "catalog")}', switch_inline_query_current_chat='')
-        setting = InlineKeyboardButton(f'{get_message(language, "settings")}', callback_data = callbackdata_settings.new())
+        setting = InlineKeyboardButton(f'{get_message(language, "settings")}', callback_data = callbackdata_settings.new('settings'))
         button = InlineKeyboardMarkup(row_width=1).add(catalog,setting)
         return button
 
@@ -64,7 +64,8 @@ class electr_select_button():
         else:
             language = param
         standart_button = KeyboardButton(f'{get_message(language, "standart_var")}')
-        button = ReplyKeyboardMarkup(resize_keyboard=True).add(standart_button)
+        back = KeyboardButton(f'{get_message(language, "back_to_cur")}')
+        button = ReplyKeyboardMarkup(resize_keyboard=True).add(standart_button,back)
 
         if stay:
             stay_button = KeyboardButton(f'{get_message(language, "stay_electr")}')
@@ -81,4 +82,28 @@ class inline_result_miners():
         calculate = InlineKeyboardButton(f'{get_message(language, "calculate")}',callback_data=callbackdata_calculate_miner.new('calculate',id))
         share = InlineKeyboardButton(f'{get_message(language, "order_miner")}',callback_data=callbackdata_calculate_miner.new('share',id))
         button = InlineKeyboardMarkup(row_width=1).add(calculate,share)
+        return button
+
+class calculate_buttons_result():
+    def return_button(param, title, auth=False):
+        if auth:
+            language = get_language_in_db(param)
+        else:
+            language = param
+        order_miner = InlineKeyboardButton(f'{get_message(language, "order_miner")}',callback_data=callbackdata_calculate_miner_result.new('order',title))
+        other_miner = InlineKeyboardButton(f'{get_message(language, "other_miner")}',switch_inline_query_current_chat='')
+        settings = InlineKeyboardButton(f'{get_message(language, "settings")}',callback_data=callbackdata_calculate_miner_result.new('settings',title))
+        back = InlineKeyboardButton(f'{get_message(language, "back")}',callback_data=callbackdata_calculate_miner_result.new('back',title))
+        button = InlineKeyboardMarkup(row_width=1).add(order_miner,other_miner,settings,back)
+        return button
+
+class feedback_buttons():
+    def return_button(param, auth=False):
+        if auth:
+            language = get_language_in_db(param)
+        else:
+            language = param
+        back = KeyboardButton(f'{get_message(language, "back")}')
+        contact = KeyboardButton(f'{get_message(language, "contact")}',request_contact=True)
+        button = ReplyKeyboardMarkup(resize_keyboard=True).add(back,contact)
         return button

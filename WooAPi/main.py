@@ -1,6 +1,7 @@
 # from message_parts import get_message
 from woocommerce import API
 
+
 wcapi = API(
     url="https://mining4-you.com/",
     consumer_key="ck_c108305d724ec87d49c07bff46debc5356e493ef",
@@ -78,30 +79,10 @@ def get_all_products(lang):
     all_ru_products = wcapi.get('products?per_page=100&category=599,611', params={'lang': f'{lang}'}).json()
     return all_ru_products
     
-if __name__ == '__main__':
-    import requests
-
-    url = "https://api.amocrm.ru/v4/leads"
-    headers = {
-        "Authorization": "EOuNI2CQE1e5IxVlIVvr5StuRdLDkScQULEkeZ8VY5B7O66Zuiu9EeCeP7prjV9b",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "name": "Тестовая сделка",
-        "status_id": 142,  # Замените на нужный ID статуса сделки
-        "price": 1000,
-        "contacts_id": [123]  # Замените на нужный ID контакта
-    }
-
-    response = requests.post(url, headers=headers, json=data)
-
-    if response.status_code == 201:  # 201 - код успешного создания
-        print("Сделка успешно создана")
-    else:
-        print("Произошла ошибка:", response.text)
 
     
-
+if __name__ == '__main__':
+    all_ru_products = wcapi.get('products?per_page=100&category=599,611', params={'lang': f'ru'}).json()
+    print(all_ru_products[0])
 
     

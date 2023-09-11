@@ -8,11 +8,11 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-from states.states import Language, calculate_datas
-from keyboards.main import keyboard_start, keyboard_menu, miner_place_button, miner_order_button, calatol_miner, cur_select_button, electr_select_button
+from states import Language, calculate_datas
+from keyboards.main import keyboard_start, keyboard_menu, miner_place_button, miner_order_button, calatol_miner, cur_select_button, electr_select_button, calculate_buttons_result, feedback_buttons
 from message_parts.main import get_message, messages_lang_parts
 from db import dbase
-from CBDate import callbackdata_order_miner, callbackdata_settings, callbackdata_calculate_miner
+from CBDate import callbackdata_order_miner, callbackdata_settings, callbackdata_calculate_miner,callbackdata_calculate_miner_result
 from inline_utils import create_inline_results
 from WooAPi import get_all_products
 from bot_utils.main import get_miner_data,get_api_data,datetimedef,get_miner_info
@@ -20,7 +20,7 @@ from bot_utils.main import get_miner_data,get_api_data,datetimedef,get_miner_inf
 API_TOKEN = '6378614077:AAGlC86Kz3MdySIrHGRsIZ2SX0ue_9MNru4'
 
 # webhook settings
-WEBHOOK_HOST = 'https://c3e2-92-55-191-19.ngrok.io'
+WEBHOOK_HOST = 'https://8ceb-92-55-161-230.ngrok.io'
 WEBHOOK_PATH = '/api'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
@@ -52,6 +52,16 @@ async def menu(message: types.Message, state: FSMContext):
 async def miner_place(message: types.Message):
     await bot.send_message(message.chat.id, f'{get_message(message.chat.id, "text_in_miner_miner_place",True)}', reply_markup= miner_place_button.return_button(message.chat.id,True) )    
 
+@dp.message_handler(lambda message: message.text in [get_message(lg, "back") for lg in ('ru', 'en')], state='*')
+async def miner_place_use(message: types.Message):
+    await message.delete()
+    await bot.send_message(message.chat.id,f'{get_message(message.chat.id, "menu",True)}{message.chat.username}', reply_markup= keyboard_menu.return_menu(message.chat.id, True))
+
+@dp.message_handler(content_types='contact', state='*')
+async def miner_place_use(message: types.Message):
+
+    await bot.send_message(message.chat.id,f'{get_message(message.chat.id, "contact_accept",True)}', reply_markup= keyboard_menu.return_menu(message.chat.id, True))
+
 @dp.message_handler(lambda message: message.text in [get_message(lg, "miners") for lg in ('ru', 'en')], state='*')
 async def miner_price(message: types.Message):
     chat_id = message.chat.id
@@ -74,6 +84,7 @@ async def cur_set(message: types.Message, state: FSMContext):
     electr = dbase.select(message.chat.id,'electricity')
     if electr[0] is None:
         await bot.send_message(message.chat.id, f'{get_message(message.chat.id, "cur_set_new",True)}',reply_markup=electr_select_button.return_button(message.chat.id, auth=True))
+        await calculate_datas.next()
     else:
         select_cur_renew_text = get_message(message.chat.id, "cur_set_renew", True)
         await bot.send_message(message.chat.id, f'{select_cur_renew_text.format(electr=electr)}', reply_markup=electr_select_button.return_button(message.chat.id, True, True)) #добавит кнопки
@@ -82,18 +93,41 @@ async def cur_set(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text.replace('.', '', 1).isdigit(), state=calculate_datas.electr)
 async def electr_set(message: types.Message, state: FSMContext):
     dbase.insert_user(message.chat.id,electricity=message.text)
-    await bot.send_message(message.chat.id, f'Выберите желаемое',reply_markup=calatol_miner.return_button(message.chat.id, True))
+    await state.finish()
+    await message.delete_reply_markup()
+    electr, cur = dbase.select(message.chat.id, "electricity, currency")
+    select_category_text = get_message(message.chat.id, "select_category", True)
+    await bot.send_message(message.chat.id, f"{select_category_text.format(cur=cur,electr=electr)}",reply_markup=calatol_miner.return_button(message.chat.id,True))
 
 @dp.message_handler(lambda message: message.text in [get_message(lg, "standart_var") for lg in ('ru', 'en')], state=calculate_datas.electr)
-async def electr_set(message: types.Message, state: FSMContext):
-    dbase.insert_user(message.chat.id,electricity=message.text)
-    await bot.send_message(message.chat.id, f'Выберите желаемое',reply_markup=calatol_miner.return_button(message.chat.id, True))
+async def electr_set_deaful(message: types.Message, state: FSMContext):
+    await state.finish()
+    dbase.insert_user(message.chat.id,electricity=4.32)
+    electr, cur = dbase.select(message.chat.id, "electricity, currency")
+    select_category_text = get_message(message.chat.id, "select_category", True)
+    await bot.send_message(message.chat.id, f"{select_category_text.format(cur=cur,electr=electr)}",reply_markup=calatol_miner.return_button(message.chat.id,True))
+
+@dp.message_handler(lambda message: message.text in [get_message(lg, "back_to_cur") for lg in ('ru', 'en')], state=calculate_datas.electr)
+async def electr_set_deaful(message: types.Message, state: FSMContext):
+    await bot.send_message(message.chat.id, get_message(message.chat.id, "cur_set", True), reply_markup=cur_select_button.button)
+    await calculate_datas.cur.set()
+
+@dp.message_handler(lambda message: message.text in [get_message(lg, "stay_electr") for lg in ('ru', 'en')], state=calculate_datas.electr)
+async def electr_set_deaful(message: types.Message, state: FSMContext):
+    await state.finish()
+    electr, cur = dbase.select(message.chat.id, "electricity, currency")
+    select_category_text = get_message(message.chat.id, "select_category", True)
+    await bot.send_message(message.chat.id, f"{select_category_text.format(cur=cur,electr=electr)}",reply_markup=calatol_miner.return_button(message.chat.id,True))
 
 @dp.callback_query_handler(callbackdata_settings.filter())
 async def settings_miners(callback: types.CallbackQuery, callback_data: dict):
-        await calculate_datas.cur.set()
-        await callback.message.delete_reply_markup()
-        await callback.message.edit_text(get_message(callback.message.chat.id, "cur_set", True))
+        match callback_data['method']:
+            case 'catalog':
+                pass
+            case 'settings':
+                await calculate_datas.cur.set()
+                await callback.message.delete()
+                await bot.send_message(callback.message.chat.id, get_message(callback.message.chat.id, "cur_set", True), reply_markup=cur_select_button.button)
 
 @dp.callback_query_handler(callbackdata_order_miner.filter())
 async def order_miner_cb(callback: types.CallbackQuery, callback_data: dict):
@@ -116,9 +150,23 @@ async def calculate_miner_callback(callback: types.CallbackQuery, callback_data:
             date, time = datetimedef().values()
             minername,sell,ths= get_miner_info(product_id, currency).values()
             select_category_text = get_message(callback.from_user.id, "calculate_datas", True)
-            await bot.send_message(callback.from_user.id, f"{select_category_text.format(dohod=dohod,sell = sell,rashod=rashod,pribyl=pribyl,okup=okup,name=name,th=th,binancecur=binancecrs,courseusd = courseusd,dif = dif, reward = reward, reward1th = reward1th, currency = currency, pay = electricity,date=date,time=time)}")
+            await bot.send_message(callback.from_user.id, f"{select_category_text.format(dohod=dohod,sell = sell,rashod=rashod,pribyl=pribyl,okup=okup,name=name,th=th,binancecur=binancecrs,courseusd = courseusd,dif = dif, reward = reward, reward1th = reward1th, currency = currency, pay = electricity,date=date,time=time)}", reply_markup= calculate_buttons_result.return_button(callback.from_user.id,f'{name} {th}',True))
         case 'contact':
             pass
+
+@dp.callback_query_handler(callbackdata_calculate_miner_result.filter())
+async def feedback(callback: types.CallbackQuery, callback_data: dict):
+    match callback_data['method']:
+        case 'order':
+            await callback.message.delete()
+            await bot.send_message(callback.from_user.id,get_message(callback.from_user.id, "feedback_order", True),reply_markup=feedback_buttons.return_button(callback.from_user.id,True))
+        case 'settings':
+            await calculate_datas.cur.set()
+            await callback.message.delete()
+            await bot.send_message(callback.from_user.id, get_message(callback.from_user.id, "cur_set", True), reply_markup=cur_select_button.button)
+        case 'back':
+            await callback.message.delete()
+            await bot.send_message(callback.from_user.id,f'{get_message(callback.from_user.id, "menu",auth=True)}{callback.from_user.username}', reply_markup= keyboard_menu.return_menu(callback.from_user.id,True))
 
 @dp.inline_handler()
 async def inline_query_handler(query: types.InlineQuery):
@@ -131,6 +179,7 @@ async def inline_query_handler(query: types.InlineQuery):
 
     # Send the response to the inline query
     await bot.answer_inline_query(query.id, results)
+    
 
 
 async def on_startup(dp):

@@ -48,7 +48,6 @@ def get_miner_data(id, chat_id):
     rashod1 = f'{rashod:,.2f}'.replace(',', ' ')
     cash = round(dohod - rashod, 2)
     cash1 = f'{cash:,.2f}'.replace(',', ' ')
-    print(minercost,cash)
     okup = round(float(minercost / cash))
     
     return {"dohod": f"{dohod1}",

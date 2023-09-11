@@ -14,6 +14,8 @@ def create_inline_results(products,chat_id):
             image_url = product['images'][0]['src']
         except (TypeError, IndexError):
             pass
+        
+        th = ' '.join([f" {attr['name']}" for attr in product['attributes']])
 
         # Create InlineQueryResultPhoto for each product
         photo_result = types.InlineQueryResultArticle(
@@ -22,10 +24,10 @@ def create_inline_results(products,chat_id):
             thumb_url=image_url,
             # photo_width=1,  # Adjust the width as needed
             # photo_height=1,  # Adjust the height as needed
-            title=product['name'],
+            title = product['name'] + th,
             description=description,
             input_message_content=types.InputMessageContent(
-                message_text=f"{product['name']} {description}",
+                message_text=f"{product['name']} {th} {description}",
             ),
             reply_markup=inline_result_miners.return_button(chat_id,product['id'],auth=True)
         )
