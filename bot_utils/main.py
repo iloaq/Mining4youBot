@@ -68,9 +68,11 @@ def get_api_data(currency):
 
 def get_miner_info(id, currency):
     minername = APIminers.api_minerinfo(id)
+    cost = int(APIminers.api_minercost(id, currency))
     sell = float(APIminers.api_minersell(id, currency))
     th = APIminers.api_minerth(id)
     sell1 = f'{sell:,.2f}'.replace(',', ' ')
     return {"minername": f"{minername}",
             "sell": f"{sell1}",
+            "cost": f"{cost}",
             "th": f"{th}"}

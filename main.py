@@ -8,19 +8,19 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-from states import Language, calculate_datas
+from states import Language, calculate_datas, order_miner_state
 from keyboards.main import keyboard_start, keyboard_menu, miner_place_button, miner_order_button, calatol_miner, cur_select_button, electr_select_button, calculate_buttons_result, feedback_buttons
 from message_parts.main import get_message, messages_lang_parts
 from db import dbase
 from CBDate import callbackdata_order_miner, callbackdata_settings, callbackdata_calculate_miner,callbackdata_calculate_miner_result
 from inline_utils import create_inline_results
 from WooAPi import get_all_products
-from bot_utils.main import get_miner_data,get_api_data,datetimedef,get_miner_info
+from bot_utils import get_miner_data,get_api_data,datetimedef,get_miner_info, create_contact_amo, create_lead_and_link_to_contact, get_language_in_db
 
-API_TOKEN = '6378614077:AAGlC86Kz3MdySIrHGRsIZ2SX0ue_9MNru4'
+API_TOKEN = '5505744557:AAFAF1qlsOAG3XXwhhFOTkIZbs_bUR9bDr0'
 
 # webhook settings
-WEBHOOK_HOST = 'https://8ceb-92-55-161-230.ngrok.io'
+WEBHOOK_HOST = 'https://2786-92-55-161-246.ngrok.io'
 WEBHOOK_PATH = '/api'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
@@ -58,9 +58,14 @@ async def miner_place_use(message: types.Message):
     await bot.send_message(message.chat.id,f'{get_message(message.chat.id, "menu",True)}{message.chat.username}', reply_markup= keyboard_menu.return_menu(message.chat.id, True))
 
 @dp.message_handler(content_types='contact', state='*')
-async def miner_place_use(message: types.Message):
-
+async def miner_place_use(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    miner = data.get('miner', None)
+    price = data.get('price', 0)
+    contact = create_contact_amo(message.from_user.username,message.contact.phone_number, miner=miner,lang=get_language_in_db(message.from_user.id), price= dbase.select(message.from_user.id, "electricity")[0],curr=dbase.select(message.from_user.id, "currency")[0],telegram_id=message.from_user.id, telegram_url=message.from_user.username)
+    create_lead_and_link_to_contact(contact, miner, name=f'Заказ пользователя {contact}', price=price)
     await bot.send_message(message.chat.id,f'{get_message(message.chat.id, "contact_accept",True)}', reply_markup= keyboard_menu.return_menu(message.chat.id, True))
+
 
 @dp.message_handler(lambda message: message.text in [get_message(lg, "miners") for lg in ('ru', 'en')], state='*')
 async def miner_price(message: types.Message):
@@ -140,7 +145,7 @@ async def order_miner_cb(callback: types.CallbackQuery, callback_data: dict):
             await bot.send_message(callback.message.chat.id,f'{get_message(callback.message.chat.id, "menu",True)}{callback.message.chat.username}', reply_markup= keyboard_menu.return_menu(callback.message.chat.id, True))
 
 @dp.callback_query_handler(callbackdata_calculate_miner.filter())
-async def calculate_miner_callback(callback: types.CallbackQuery, callback_data: dict):
+async def calculate_miner_callback(callback: types.CallbackQuery, callback_data: dict, state: FSMContext):
     match callback_data['method']:
         case 'calculate':
             product_id = callback_data['id']
@@ -148,17 +153,28 @@ async def calculate_miner_callback(callback: types.CallbackQuery, callback_data:
             binancecrs, courseusd, dif, reward, reward1th = get_api_data(currency).values()
             dohod,rashod,pribyl,okup,name,th = get_miner_data(product_id,callback.from_user.id).values()
             date, time = datetimedef().values()
-            minername,sell,ths= get_miner_info(product_id, currency).values()
+            minername,sell,cost,ths= get_miner_info(product_id, currency).values()
             select_category_text = get_message(callback.from_user.id, "calculate_datas", True)
-            await bot.send_message(callback.from_user.id, f"{select_category_text.format(dohod=dohod,sell = sell,rashod=rashod,pribyl=pribyl,okup=okup,name=name,th=th,binancecur=binancecrs,courseusd = courseusd,dif = dif, reward = reward, reward1th = reward1th, currency = currency, pay = electricity,date=date,time=time)}", reply_markup= calculate_buttons_result.return_button(callback.from_user.id,f'{name} {th}',True))
-        case 'contact':
-            pass
+            await bot.send_message(callback.from_user.id, f"{select_category_text.format(dohod=dohod,sell = sell,rashod=rashod,pribyl=pribyl,okup=okup,name=name,th=th,binancecur=binancecrs,courseusd = courseusd,dif = dif, reward = reward, reward1th = reward1th, currency = currency, pay = electricity,date=date,time=time)}", reply_markup= calculate_buttons_result.return_button(callback.from_user.id,product_id,True))
+        case 'share':
+            product_id = callback_data['id']
+            minername,sell,cost,ths= get_miner_info(product_id, 'RUB').values()
+            await order_miner_state.miner.set()
+            await state.update_data(miner=minername+''+ths)
+            await order_miner_state.price.set()
+            await state.update_data(price=cost)
+            await bot.send_message(callback.from_user.id,get_message(callback.from_user.id, "feedback_order", True),reply_markup=feedback_buttons.return_button(callback.from_user.id,True))
 
 @dp.callback_query_handler(callbackdata_calculate_miner_result.filter())
-async def feedback(callback: types.CallbackQuery, callback_data: dict):
+async def feedback(callback: types.CallbackQuery, callback_data: dict, state: FSMContext):
     match callback_data['method']:
         case 'order':
-            await callback.message.delete()
+            product_id = callback_data['title']
+            minername,sell,cost,ths= get_miner_info(product_id, 'RUB').values()
+            await order_miner_state.miner.set()
+            await state.update_data(miner=minername+''+ths)
+            await order_miner_state.price.set()
+            await state.update_data(price=cost)
             await bot.send_message(callback.from_user.id,get_message(callback.from_user.id, "feedback_order", True),reply_markup=feedback_buttons.return_button(callback.from_user.id,True))
         case 'settings':
             await calculate_datas.cur.set()

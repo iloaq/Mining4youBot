@@ -6,3 +6,7 @@ class Language(StatesGroup):
 class calculate_datas(StatesGroup):
     cur = State()
     electr = State()
+
+class order_miner_state(StatesGroup):
+    miner = State()
+    price = State()
